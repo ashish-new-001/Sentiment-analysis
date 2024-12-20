@@ -1,1 +1,759 @@
-{"metadata":{"kernelspec":{"language":"python","display_name":"Python 3","name":"python3"},"language_info":{"name":"python","version":"3.10.14","mimetype":"text/x-python","codemirror_mode":{"name":"ipython","version":3},"pygments_lexer":"ipython3","nbconvert_exporter":"python","file_extension":".py"},"kaggle":{"accelerator":"none","dataSources":[{"sourceId":1929264,"sourceType":"datasetVersion","datasetId":1150837}],"dockerImageVersionId":30804,"isInternetEnabled":true,"language":"python","sourceType":"notebook","isGpuEnabled":false}},"nbformat_minor":4,"nbformat":4,"cells":[{"cell_type":"code","source":"# This Python 3 environment comes with many helpful analytics libraries installed\n# It is defined by the kaggle/python Docker image: https://github.com/kaggle/docker-python\n# For example, here's several helpful packages to load\n\nimport numpy as np # linear algebra\nimport pandas as pd # data processing, CSV file I/O (e.g. pd.read_csv)\n\n# Input data files are available in the read-only \"../input/\" directory\n# For example, running this (by clicking run or pressing Shift+Enter) will list all files under the input directory\n\nimport os\nfor dirname, _, filenames in os.walk('/kaggle/input'):\n    for filename in filenames:\n        print(os.path.join(dirname, filename))\n\n# You can write up to 20GB to the current directory (/kaggle/working/) that gets preserved as output when you create a version using \"Save & Run All\" \n# You can also write temporary files to /kaggle/temp/, but they won't be saved outside of the current session\n\nimport spacy\nfrom sklearn.model_selection import train_test_split\nfrom sklearn.metrics import accuracy_score\nfrom sklearn.naive_bayes import MultinomialNB\nfrom sklearn.feature_extraction.text import CountVectorizer\nimport pandas as pd","metadata":{"_uuid":"8f2839f25d086af736a60e9eeb907d3b93b6e0e5","_cell_guid":"b1076dfc-b9ad-4769-8c92-a6c4dae69d19","trusted":true,"execution":{"iopub.status.busy":"2024-12-20T09:23:04.730879Z","iopub.execute_input":"2024-12-20T09:23:04.731436Z","iopub.status.idle":"2024-12-20T09:23:04.741533Z","shell.execute_reply.started":"2024-12-20T09:23:04.731402Z","shell.execute_reply":"2024-12-20T09:23:04.740501Z"}},"outputs":[{"name":"stdout","text":"/kaggle/input/language-detection/Language Detection.csv\n","output_type":"stream"}],"execution_count":4},{"cell_type":"markdown","source":"So i will be using spaCy model for the purpose...\nsteps:\n1. load the universal spaCy model\n2. prepare the data\n3. preprocess the data (by cleaning it i.e. removing the multiple spaces if present)\n4. training data processing (splitting the data)\n5. Then i will be doing the vectorization\n6. After this i will decide what i want to do, since there are multiple classifiers that i can use after Vectorization\nMaybe i will follow something like the thing that i did in my sentiment analysis project","metadata":{}},{"cell_type":"code","source":"# loading the universal model\n# Load the universal spaCy mode\n!pip install -U spacy\n!python -m spacy download xx_ent_wiki_sm","metadata":{"trusted":true,"execution":{"iopub.status.busy":"2024-12-20T09:23:04.748824Z","iopub.execute_input":"2024-12-20T09:23:04.749262Z","iopub.status.idle":"2024-12-20T09:23:42.100653Z","shell.execute_reply.started":"2024-12-20T09:23:04.749223Z","shell.execute_reply":"2024-12-20T09:23:42.099255Z"}},"outputs":[{"name":"stdout","text":"Requirement already satisfied: spacy in /opt/conda/lib/python3.10/site-packages (3.8.2)\nCollecting spacy\n  Downloading spacy-3.8.3-cp310-cp310-manylinux_2_17_x86_64.manylinux2014_x86_64.whl.metadata (27 kB)\nRequirement already satisfied: spacy-legacy<3.1.0,>=3.0.11 in /opt/conda/lib/python3.10/site-packages (from spacy) (3.0.12)\nRequirement already satisfied: spacy-loggers<2.0.0,>=1.0.0 in /opt/conda/lib/python3.10/site-packages (from spacy) (1.0.5)\nRequirement already satisfied: murmurhash<1.1.0,>=0.28.0 in /opt/conda/lib/python3.10/site-packages (from spacy) (1.0.11)\nRequirement already satisfied: cymem<2.1.0,>=2.0.2 in /opt/conda/lib/python3.10/site-packages (from spacy) (2.0.10)\nRequirement already satisfied: preshed<3.1.0,>=3.0.2 in /opt/conda/lib/python3.10/site-packages (from spacy) (3.0.9)\nRequirement already satisfied: thinc<8.4.0,>=8.3.0 in /opt/conda/lib/python3.10/site-packages (from spacy) (8.3.2)\nRequirement already satisfied: wasabi<1.2.0,>=0.9.1 in /opt/conda/lib/python3.10/site-packages (from spacy) (1.1.3)\nRequirement already satisfied: srsly<3.0.0,>=2.4.3 in /opt/conda/lib/python3.10/site-packages (from spacy) (2.4.8)\nRequirement already satisfied: catalogue<2.1.0,>=2.0.6 in /opt/conda/lib/python3.10/site-packages (from spacy) (2.0.10)\nRequirement already satisfied: weasel<0.5.0,>=0.1.0 in /opt/conda/lib/python3.10/site-packages (from spacy) (0.4.1)\nRequirement already satisfied: typer<1.0.0,>=0.3.0 in /opt/conda/lib/python3.10/site-packages (from spacy) (0.12.3)\nRequirement already satisfied: tqdm<5.0.0,>=4.38.0 in /opt/conda/lib/python3.10/site-packages (from spacy) (4.66.4)\nRequirement already satisfied: numpy>=1.19.0 in /opt/conda/lib/python3.10/site-packages (from spacy) (1.26.4)\nRequirement already satisfied: requests<3.0.0,>=2.13.0 in /opt/conda/lib/python3.10/site-packages (from spacy) (2.32.3)\nRequirement already satisfied: pydantic!=1.8,!=1.8.1,<3.0.0,>=1.7.4 in /opt/conda/lib/python3.10/site-packages (from spacy) (2.10.2)\nRequirement already satisfied: jinja2 in /opt/conda/lib/python3.10/site-packages (from spacy) (3.1.4)\nRequirement already satisfied: setuptools in /opt/conda/lib/python3.10/site-packages (from spacy) (70.0.0)\nRequirement already satisfied: packaging>=20.0 in /opt/conda/lib/python3.10/site-packages (from spacy) (21.3)\nRequirement already satisfied: langcodes<4.0.0,>=3.2.0 in /opt/conda/lib/python3.10/site-packages (from spacy) (3.5.0)\nRequirement already satisfied: language-data>=1.2 in /opt/conda/lib/python3.10/site-packages (from langcodes<4.0.0,>=3.2.0->spacy) (1.3.0)\nRequirement already satisfied: pyparsing!=3.0.5,>=2.0.2 in /opt/conda/lib/python3.10/site-packages (from packaging>=20.0->spacy) (3.1.2)\nRequirement already satisfied: annotated-types>=0.6.0 in /opt/conda/lib/python3.10/site-packages (from pydantic!=1.8,!=1.8.1,<3.0.0,>=1.7.4->spacy) (0.7.0)\nRequirement already satisfied: pydantic-core==2.27.1 in /opt/conda/lib/python3.10/site-packages (from pydantic!=1.8,!=1.8.1,<3.0.0,>=1.7.4->spacy) (2.27.1)\nRequirement already satisfied: typing-extensions>=4.12.2 in /opt/conda/lib/python3.10/site-packages (from pydantic!=1.8,!=1.8.1,<3.0.0,>=1.7.4->spacy) (4.12.2)\nRequirement already satisfied: charset-normalizer<4,>=2 in /opt/conda/lib/python3.10/site-packages (from requests<3.0.0,>=2.13.0->spacy) (3.3.2)\nRequirement already satisfied: idna<4,>=2.5 in /opt/conda/lib/python3.10/site-packages (from requests<3.0.0,>=2.13.0->spacy) (3.7)\nRequirement already satisfied: urllib3<3,>=1.21.1 in /opt/conda/lib/python3.10/site-packages (from requests<3.0.0,>=2.13.0->spacy) (1.26.18)\nRequirement already satisfied: certifi>=2017.4.17 in /opt/conda/lib/python3.10/site-packages (from requests<3.0.0,>=2.13.0->spacy) (2024.6.2)\nRequirement already satisfied: blis<1.1.0,>=1.0.0 in /opt/conda/lib/python3.10/site-packages (from thinc<8.4.0,>=8.3.0->spacy) (1.0.1)\nRequirement already satisfied: confection<1.0.0,>=0.0.1 in /opt/conda/lib/python3.10/site-packages (from thinc<8.4.0,>=8.3.0->spacy) (0.1.5)\nCollecting numpy>=1.19.0 (from spacy)\n  Downloading numpy-2.0.2-cp310-cp310-manylinux_2_17_x86_64.manylinux2014_x86_64.whl.metadata (60 kB)\n\u001b[2K     \u001b[90m━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\u001b[0m \u001b[32m60.9/60.9 kB\u001b[0m \u001b[31m3.3 MB/s\u001b[0m eta \u001b[36m0:00:00\u001b[0m\n\u001b[?25hRequirement already satisfied: click>=8.0.0 in /opt/conda/lib/python3.10/site-packages (from typer<1.0.0,>=0.3.0->spacy) (8.1.7)\nRequirement already satisfied: shellingham>=1.3.0 in /opt/conda/lib/python3.10/site-packages (from typer<1.0.0,>=0.3.0->spacy) (1.5.4)\nRequirement already satisfied: rich>=10.11.0 in /opt/conda/lib/python3.10/site-packages (from typer<1.0.0,>=0.3.0->spacy) (13.7.1)\nRequirement already satisfied: cloudpathlib<1.0.0,>=0.7.0 in /opt/conda/lib/python3.10/site-packages (from weasel<0.5.0,>=0.1.0->spacy) (0.20.0)\nRequirement already satisfied: smart-open<8.0.0,>=5.2.1 in /opt/conda/lib/python3.10/site-packages (from weasel<0.5.0,>=0.1.0->spacy) (7.0.4)\nRequirement already satisfied: MarkupSafe>=2.0 in /opt/conda/lib/python3.10/site-packages (from jinja2->spacy) (2.1.5)\nRequirement already satisfied: marisa-trie>=1.1.0 in /opt/conda/lib/python3.10/site-packages (from language-data>=1.2->langcodes<4.0.0,>=3.2.0->spacy) (1.2.1)\nRequirement already satisfied: markdown-it-py>=2.2.0 in /opt/conda/lib/python3.10/site-packages (from rich>=10.11.0->typer<1.0.0,>=0.3.0->spacy) (3.0.0)\nRequirement already satisfied: pygments<3.0.0,>=2.13.0 in /opt/conda/lib/python3.10/site-packages (from rich>=10.11.0->typer<1.0.0,>=0.3.0->spacy) (2.18.0)\nRequirement already satisfied: wrapt in /opt/conda/lib/python3.10/site-packages (from smart-open<8.0.0,>=5.2.1->weasel<0.5.0,>=0.1.0->spacy) (1.16.0)\nRequirement already satisfied: mdurl~=0.1 in /opt/conda/lib/python3.10/site-packages (from markdown-it-py>=2.2.0->rich>=10.11.0->typer<1.0.0,>=0.3.0->spacy) (0.1.2)\nDownloading spacy-3.8.3-cp310-cp310-manylinux_2_17_x86_64.manylinux2014_x86_64.whl (29.1 MB)\n\u001b[2K   \u001b[90m━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\u001b[0m \u001b[32m29.1/29.1 MB\u001b[0m \u001b[31m55.4 MB/s\u001b[0m eta \u001b[36m0:00:00\u001b[0m:00:01\u001b[0m00:01\u001b[0m\n\u001b[?25hDownloading numpy-2.0.2-cp310-cp310-manylinux_2_17_x86_64.manylinux2014_x86_64.whl (19.5 MB)\n\u001b[2K   \u001b[90m━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\u001b[0m \u001b[32m19.5/19.5 MB\u001b[0m \u001b[31m64.4 MB/s\u001b[0m eta \u001b[36m0:00:00\u001b[0m:00:01\u001b[0m00:01\u001b[0m\n\u001b[?25hInstalling collected packages: numpy, spacy\n  Attempting uninstall: numpy\n    Found existing installation: numpy 1.26.4\n    Uninstalling numpy-1.26.4:\n      Successfully uninstalled numpy-1.26.4\n  Attempting uninstall: spacy\n    Found existing installation: spacy 3.8.2\n    Uninstalling spacy-3.8.2:\n      Successfully uninstalled spacy-3.8.2\n\u001b[31mERROR: pip's dependency resolver does not currently take into account all the packages that are installed. This behaviour is the source of the following dependency conflicts.\napache-beam 2.46.0 requires cloudpickle~=2.2.1, but you have cloudpickle 3.1.0 which is incompatible.\napache-beam 2.46.0 requires dill<0.3.2,>=0.3.1.1, but you have dill 0.3.8 which is incompatible.\napache-beam 2.46.0 requires numpy<1.25.0,>=1.14.3, but you have numpy 2.0.2 which is incompatible.\napache-beam 2.46.0 requires pyarrow<10.0.0,>=3.0.0, but you have pyarrow 18.1.0 which is incompatible.\ncatboost 1.2.7 requires numpy<2.0,>=1.16.0, but you have numpy 2.0.2 which is incompatible.\ngensim 4.3.3 requires numpy<2.0,>=1.18.5, but you have numpy 2.0.2 which is incompatible.\ngensim 4.3.3 requires scipy<1.14.0,>=1.7.0, but you have scipy 1.14.1 which is incompatible.\nibis-framework 7.1.0 requires numpy<2,>=1, but you have numpy 2.0.2 which is incompatible.\nibis-framework 7.1.0 requires pyarrow<15,>=2, but you have pyarrow 18.1.0 which is incompatible.\nlibpysal 4.9.2 requires packaging>=22, but you have packaging 21.3 which is incompatible.\nlibpysal 4.9.2 requires shapely>=2.0.1, but you have shapely 1.8.5.post1 which is incompatible.\nmatplotlib 3.7.5 requires numpy<2,>=1.20, but you have numpy 2.0.2 which is incompatible.\nmlxtend 0.23.3 requires scikit-learn>=1.3.1, but you have scikit-learn 1.2.2 which is incompatible.\nplotnine 0.14.3 requires matplotlib>=3.8.0, but you have matplotlib 3.7.5 which is incompatible.\ntensorflow 2.16.1 requires ml-dtypes~=0.3.1, but you have ml-dtypes 0.5.0 which is incompatible.\ntensorflow 2.16.1 requires numpy<2.0.0,>=1.23.5; python_version <= \"3.11\", but you have numpy 2.0.2 which is incompatible.\ntensorflow-transform 0.14.0 requires numpy<2,>=1.16, but you have numpy 2.0.2 which is incompatible.\nxarray 2024.11.0 requires packaging>=23.2, but you have packaging 21.3 which is incompatible.\nydata-profiling 4.12.0 requires scipy<1.14,>=1.4.1, but you have scipy 1.14.1 which is incompatible.\u001b[0m\u001b[31m\n\u001b[0mSuccessfully installed numpy-2.0.2 spacy-3.8.3\nCollecting xx-ent-wiki-sm==3.8.0\n  Downloading https://github.com/explosion/spacy-models/releases/download/xx_ent_wiki_sm-3.8.0/xx_ent_wiki_sm-3.8.0-py3-none-any.whl (11.1 MB)\n\u001b[2K     \u001b[90m━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\u001b[0m \u001b[32m11.1/11.1 MB\u001b[0m \u001b[31m63.0 MB/s\u001b[0m eta \u001b[36m0:00:00\u001b[0m00:01\u001b[0m0:01\u001b[0m\n\u001b[?25hInstalling collected packages: xx-ent-wiki-sm\nSuccessfully installed xx-ent-wiki-sm-3.8.0\n\u001b[38;5;2m✔ Download and installation successful\u001b[0m\nYou can now load the package via spacy.load('xx_ent_wiki_sm')\n","output_type":"stream"}],"execution_count":5},{"cell_type":"code","source":"nlp = spacy.load(\"xx_ent_wiki_sm\")","metadata":{"trusted":true,"execution":{"iopub.status.busy":"2024-12-20T09:23:42.103109Z","iopub.execute_input":"2024-12-20T09:23:42.103529Z","iopub.status.idle":"2024-12-20T09:23:44.878784Z","shell.execute_reply.started":"2024-12-20T09:23:42.103493Z","shell.execute_reply":"2024-12-20T09:23:44.877693Z"}},"outputs":[],"execution_count":6},{"cell_type":"code","source":"df = pd.read_csv('/kaggle/input/language-detection/Language Detection.csv')\nprint(df.head())","metadata":{"trusted":true,"execution":{"iopub.status.busy":"2024-12-20T09:23:44.879935Z","iopub.execute_input":"2024-12-20T09:23:44.880261Z","iopub.status.idle":"2024-12-20T09:23:44.997681Z","shell.execute_reply.started":"2024-12-20T09:23:44.880230Z","shell.execute_reply":"2024-12-20T09:23:44.996645Z"}},"outputs":[{"name":"stdout","text":"                                                Text Language\n0   Nature, in the broadest sense, is the natural...  English\n1  \"Nature\" can refer to the phenomena of the phy...  English\n2  The study of nature is a large, if not the onl...  English\n3  Although humans are part of nature, human acti...  English\n4  [1] The word nature is borrowed from the Old F...  English\n","output_type":"stream"}],"execution_count":7},{"cell_type":"markdown","source":"**Lets begin our preprocessing step**","metadata":{}},{"cell_type":"code","source":"# import re\n\ndef yele(text):\n    doc = nlp(text)\n    tokens = [token.text for token in doc if not token.is_stop and not token.is_punct]\n    return \" \".join(tokens)\n\ndf['Text'] = df['Text'].apply(yele)","metadata":{"trusted":true,"execution":{"iopub.status.busy":"2024-12-20T09:23:44.999971Z","iopub.execute_input":"2024-12-20T09:23:45.000349Z","iopub.status.idle":"2024-12-20T09:24:20.733780Z","shell.execute_reply.started":"2024-12-20T09:23:45.000313Z","shell.execute_reply":"2024-12-20T09:24:20.732641Z"}},"outputs":[],"execution_count":8},{"cell_type":"code","source":"print(df.shape)\n# print(df.iloc[10334][0])","metadata":{"trusted":true,"execution":{"iopub.status.busy":"2024-12-20T09:24:20.735136Z","iopub.execute_input":"2024-12-20T09:24:20.735527Z","iopub.status.idle":"2024-12-20T09:24:20.741163Z","shell.execute_reply.started":"2024-12-20T09:24:20.735493Z","shell.execute_reply":"2024-12-20T09:24:20.739863Z"}},"outputs":[{"name":"stdout","text":"(10337, 2)\n","output_type":"stream"}],"execution_count":9},{"cell_type":"markdown","source":"***Lets begin our training data processing***","metadata":{}},{"cell_type":"code","source":"X = df['Text']\ny = df['Language']\n\nX_t, X_test, y_t, y_test = train_test_split(X,y,test_size = 0.1, random_state = 1)\n\nprint(len(X_t))\nprint(len(X_test))","metadata":{"trusted":true,"execution":{"iopub.status.busy":"2024-12-20T09:24:20.742695Z","iopub.execute_input":"2024-12-20T09:24:20.743043Z","iopub.status.idle":"2024-12-20T09:24:20.762215Z","shell.execute_reply.started":"2024-12-20T09:24:20.743011Z","shell.execute_reply":"2024-12-20T09:24:20.760956Z"}},"outputs":[{"name":"stdout","text":"9303\n1034\n","output_type":"stream"}],"execution_count":10},{"cell_type":"markdown","source":"Now the vectorization process begins from here:","metadata":{}},{"cell_type":"code","source":"vect = CountVectorizer()\nfrom sklearn.preprocessing import LabelEncoder\nenc = LabelEncoder()\ny_t_vec = enc.fit_transform(y_t)\ny_test_vec = enc.transform(y_test)\nX_t_vec = vect.fit_transform(X_t)\nX_test_vec = vect.transform(X_test)","metadata":{"trusted":true,"execution":{"iopub.status.busy":"2024-12-20T09:24:20.763719Z","iopub.execute_input":"2024-12-20T09:24:20.764225Z","iopub.status.idle":"2024-12-20T09:24:21.120238Z","shell.execute_reply.started":"2024-12-20T09:24:20.764154Z","shell.execute_reply":"2024-12-20T09:24:21.118950Z"}},"outputs":[],"execution_count":11},{"cell_type":"code","source":"from sklearn.feature_extraction.text import TfidfVectorizer\n\ntfidf = TfidfVectorizer(max_features=5000)\nX_t_tf = tfidf.fit_transform(X_t)\nX_test_tf = tfidf.transform(X_test)\n\nprint(f\"TF-IDF training data shape: {X_t_tf.shape}\")\nprint(f\"TF-IDF testing data shape: {X_test_tf.shape}\")","metadata":{"trusted":true,"execution":{"iopub.status.busy":"2024-12-20T09:24:21.121717Z","iopub.execute_input":"2024-12-20T09:24:21.122036Z","iopub.status.idle":"2024-12-20T09:24:21.493439Z","shell.execute_reply.started":"2024-12-20T09:24:21.122007Z","shell.execute_reply":"2024-12-20T09:24:21.492203Z"}},"outputs":[{"name":"stdout","text":"TF-IDF training data shape: (9303, 5000)\nTF-IDF testing data shape: (1034, 5000)\n","output_type":"stream"}],"execution_count":12},{"cell_type":"code","source":"from sklearn.naive_bayes import MultinomialNB\nclf_nb = MultinomialNB()\nclf_nb.fit(X_t_tf, y_t_vec)\npredi = clf_nb.predict(X_test_tf)\naccuracy_logreg = accuracy_score(y_test_vec, predi)\nprint(f\"Logistic Regression Accuracy: {accuracy_logreg * 100:.2f}%\")","metadata":{"trusted":true,"execution":{"iopub.status.busy":"2024-12-20T09:24:21.494836Z","iopub.execute_input":"2024-12-20T09:24:21.495217Z","iopub.status.idle":"2024-12-20T09:24:21.513286Z","shell.execute_reply.started":"2024-12-20T09:24:21.495153Z","shell.execute_reply":"2024-12-20T09:24:21.511989Z"}},"outputs":[{"name":"stdout","text":"Logistic Regression Accuracy: 96.32%\n","output_type":"stream"}],"execution_count":13},{"cell_type":"code","source":"from sklearn.linear_model import LogisticRegression\nlogi = LogisticRegression(max_iter = 1000)\n\nlogi.fit(X_t_tf, y_t_vec)\n\npredi = logi.predict(X_test_tf)\n\naccuracy_logreg = accuracy_score(y_test_vec, predi)\nprint(f\"Logistic Regression Accuracy: {accuracy_logreg * 100:.2f}%\")\n","metadata":{"trusted":true,"execution":{"iopub.status.busy":"2024-12-20T09:24:21.516251Z","iopub.execute_input":"2024-12-20T09:24:21.516644Z","iopub.status.idle":"2024-12-20T09:24:27.092663Z","shell.execute_reply.started":"2024-12-20T09:24:21.516608Z","shell.execute_reply":"2024-12-20T09:24:27.090614Z"}},"outputs":[{"name":"stdout","text":"Logistic Regression Accuracy: 95.74%\n","output_type":"stream"}],"execution_count":14},{"cell_type":"code","source":"yele = ['Hello my name is this', 'salut, je mappelle ainsi' , 'привет, меня зовут это', ]\nyele_tf = tfidf.transform(yele)\n\nanswer = logi.predict(yele_tf)\nans = enc.inverse_transform(answer)\nprint(ans)","metadata":{"trusted":true,"execution":{"iopub.status.busy":"2024-12-20T09:25:15.664509Z","iopub.execute_input":"2024-12-20T09:25:15.665379Z","iopub.status.idle":"2024-12-20T09:25:15.673468Z","shell.execute_reply.started":"2024-12-20T09:25:15.665337Z","shell.execute_reply":"2024-12-20T09:25:15.672342Z"}},"outputs":[{"name":"stdout","text":"['English' 'French' 'Russian']\n","output_type":"stream"}],"execution_count":18},{"cell_type":"code","source":"from sklearn.svm import SVC\nclf_svm = SVC(kernel='linear', max_iter=1000)\nclf_svm.fit(X_t_tf, y_t_vec)\npredi = clf_svm.predict(X_test_tf)\naccuracy_logreg = accuracy_score(y_test_vec, predi)\nprint(f\"Logistic Regression Accuracy: {accuracy_logreg * 100:.2f}%\")","metadata":{"trusted":true,"execution":{"iopub.status.busy":"2024-12-20T09:24:27.119501Z","iopub.execute_input":"2024-12-20T09:24:27.120040Z","iopub.status.idle":"2024-12-20T09:24:30.700185Z","shell.execute_reply.started":"2024-12-20T09:24:27.119988Z","shell.execute_reply":"2024-12-20T09:24:30.699076Z"}},"outputs":[{"name":"stderr","text":"/opt/conda/lib/python3.10/site-packages/sklearn/svm/_base.py:299: ConvergenceWarning: Solver terminated early (max_iter=1000).  Consider pre-processing your data with StandardScaler or MinMaxScaler.\n  warnings.warn(\n","output_type":"stream"},{"name":"stdout","text":"Logistic Regression Accuracy: 95.45%\n","output_type":"stream"}],"execution_count":16},{"cell_type":"code","source":"import pickle\nmodel_path = '/kaggle/working/language_model.pkl'\nwith open(model_path, 'wb') as f:\n    pickle.dump(clf_svm, f)","metadata":{"trusted":true,"execution":{"iopub.status.busy":"2024-12-20T09:25:20.667558Z","iopub.execute_input":"2024-12-20T09:25:20.668056Z","iopub.status.idle":"2024-12-20T09:25:20.676644Z","shell.execute_reply.started":"2024-12-20T09:25:20.668002Z","shell.execute_reply":"2024-12-20T09:25:20.675229Z"}},"outputs":[],"execution_count":19},{"cell_type":"code","source":"","metadata":{"trusted":true},"outputs":[],"execution_count":null}]}
+{
+ "cells": [
+  {
+   "cell_type": "code",
+   "execution_count": 1,
+   "id": "ee17a3cd",
+   "metadata": {
+    "_cell_guid": "b1076dfc-b9ad-4769-8c92-a6c4dae69d19",
+    "_uuid": "8f2839f25d086af736a60e9eeb907d3b93b6e0e5",
+    "execution": {
+     "iopub.execute_input": "2024-12-20T09:34:14.049365Z",
+     "iopub.status.busy": "2024-12-20T09:34:14.048949Z",
+     "iopub.status.idle": "2024-12-20T09:34:20.884212Z",
+     "shell.execute_reply": "2024-12-20T09:34:20.883336Z"
+    },
+    "papermill": {
+     "duration": 6.844031,
+     "end_time": "2024-12-20T09:34:20.886649",
+     "exception": false,
+     "start_time": "2024-12-20T09:34:14.042618",
+     "status": "completed"
+    },
+    "tags": []
+   },
+   "outputs": [
+    {
+     "name": "stdout",
+     "output_type": "stream",
+     "text": [
+      "/kaggle/input/language-detection/Language Detection.csv\n"
+     ]
+    }
+   ],
+   "source": [
+    "# This Python 3 environment comes with many helpful analytics libraries installed\n",
+    "# It is defined by the kaggle/python Docker image: https://github.com/kaggle/docker-python\n",
+    "# For example, here's several helpful packages to load\n",
+    "\n",
+    "import numpy as np # linear algebra\n",
+    "import pandas as pd # data processing, CSV file I/O (e.g. pd.read_csv)\n",
+    "\n",
+    "# Input data files are available in the read-only \"../input/\" directory\n",
+    "# For example, running this (by clicking run or pressing Shift+Enter) will list all files under the input directory\n",
+    "\n",
+    "import os\n",
+    "for dirname, _, filenames in os.walk('/kaggle/input'):\n",
+    "    for filename in filenames:\n",
+    "        print(os.path.join(dirname, filename))\n",
+    "\n",
+    "# You can write up to 20GB to the current directory (/kaggle/working/) that gets preserved as output when you create a version using \"Save & Run All\" \n",
+    "# You can also write temporary files to /kaggle/temp/, but they won't be saved outside of the current session\n",
+    "\n",
+    "import spacy\n",
+    "from sklearn.model_selection import train_test_split\n",
+    "from sklearn.metrics import accuracy_score\n",
+    "from sklearn.naive_bayes import MultinomialNB\n",
+    "from sklearn.feature_extraction.text import CountVectorizer\n",
+    "import pandas as pd"
+   ]
+  },
+  {
+   "cell_type": "markdown",
+   "id": "f9b1b759",
+   "metadata": {
+    "papermill": {
+     "duration": 0.003994,
+     "end_time": "2024-12-20T09:34:20.895193",
+     "exception": false,
+     "start_time": "2024-12-20T09:34:20.891199",
+     "status": "completed"
+    },
+    "tags": []
+   },
+   "source": [
+    "So i will be using spaCy model for the purpose...\n",
+    "steps:\n",
+    "1. load the universal spaCy model\n",
+    "2. prepare the data\n",
+    "3. preprocess the data (by cleaning it i.e. removing the multiple spaces if present)\n",
+    "4. training data processing (splitting the data)\n",
+    "5. Then i will be doing the vectorization\n",
+    "6. After this i will decide what i want to do, since there are multiple classifiers that i can use after Vectorization\n",
+    "Maybe i will follow something like the thing that i did in my sentiment analysis project"
+   ]
+  },
+  {
+   "cell_type": "code",
+   "execution_count": 2,
+   "id": "47bb453c",
+   "metadata": {
+    "execution": {
+     "iopub.execute_input": "2024-12-20T09:34:20.905262Z",
+     "iopub.status.busy": "2024-12-20T09:34:20.904689Z",
+     "iopub.status.idle": "2024-12-20T09:34:57.617313Z",
+     "shell.execute_reply": "2024-12-20T09:34:57.616047Z"
+    },
+    "papermill": {
+     "duration": 36.720643,
+     "end_time": "2024-12-20T09:34:57.619995",
+     "exception": false,
+     "start_time": "2024-12-20T09:34:20.899352",
+     "status": "completed"
+    },
+    "tags": []
+   },
+   "outputs": [
+    {
+     "name": "stdout",
+     "output_type": "stream",
+     "text": [
+      "Requirement already satisfied: spacy in /opt/conda/lib/python3.10/site-packages (3.8.2)\r\n",
+      "Collecting spacy\r\n",
+      "  Downloading spacy-3.8.3-cp310-cp310-manylinux_2_17_x86_64.manylinux2014_x86_64.whl.metadata (27 kB)\r\n",
+      "Requirement already satisfied: spacy-legacy<3.1.0,>=3.0.11 in /opt/conda/lib/python3.10/site-packages (from spacy) (3.0.12)\r\n",
+      "Requirement already satisfied: spacy-loggers<2.0.0,>=1.0.0 in /opt/conda/lib/python3.10/site-packages (from spacy) (1.0.5)\r\n",
+      "Requirement already satisfied: murmurhash<1.1.0,>=0.28.0 in /opt/conda/lib/python3.10/site-packages (from spacy) (1.0.11)\r\n",
+      "Requirement already satisfied: cymem<2.1.0,>=2.0.2 in /opt/conda/lib/python3.10/site-packages (from spacy) (2.0.10)\r\n",
+      "Requirement already satisfied: preshed<3.1.0,>=3.0.2 in /opt/conda/lib/python3.10/site-packages (from spacy) (3.0.9)\r\n",
+      "Requirement already satisfied: thinc<8.4.0,>=8.3.0 in /opt/conda/lib/python3.10/site-packages (from spacy) (8.3.2)\r\n",
+      "Requirement already satisfied: wasabi<1.2.0,>=0.9.1 in /opt/conda/lib/python3.10/site-packages (from spacy) (1.1.3)\r\n",
+      "Requirement already satisfied: srsly<3.0.0,>=2.4.3 in /opt/conda/lib/python3.10/site-packages (from spacy) (2.4.8)\r\n",
+      "Requirement already satisfied: catalogue<2.1.0,>=2.0.6 in /opt/conda/lib/python3.10/site-packages (from spacy) (2.0.10)\r\n",
+      "Requirement already satisfied: weasel<0.5.0,>=0.1.0 in /opt/conda/lib/python3.10/site-packages (from spacy) (0.4.1)\r\n",
+      "Requirement already satisfied: typer<1.0.0,>=0.3.0 in /opt/conda/lib/python3.10/site-packages (from spacy) (0.12.3)\r\n",
+      "Requirement already satisfied: tqdm<5.0.0,>=4.38.0 in /opt/conda/lib/python3.10/site-packages (from spacy) (4.66.4)\r\n",
+      "Requirement already satisfied: numpy>=1.19.0 in /opt/conda/lib/python3.10/site-packages (from spacy) (1.26.4)\r\n",
+      "Requirement already satisfied: requests<3.0.0,>=2.13.0 in /opt/conda/lib/python3.10/site-packages (from spacy) (2.32.3)\r\n",
+      "Requirement already satisfied: pydantic!=1.8,!=1.8.1,<3.0.0,>=1.7.4 in /opt/conda/lib/python3.10/site-packages (from spacy) (2.10.2)\r\n",
+      "Requirement already satisfied: jinja2 in /opt/conda/lib/python3.10/site-packages (from spacy) (3.1.4)\r\n",
+      "Requirement already satisfied: setuptools in /opt/conda/lib/python3.10/site-packages (from spacy) (70.0.0)\r\n",
+      "Requirement already satisfied: packaging>=20.0 in /opt/conda/lib/python3.10/site-packages (from spacy) (21.3)\r\n",
+      "Requirement already satisfied: langcodes<4.0.0,>=3.2.0 in /opt/conda/lib/python3.10/site-packages (from spacy) (3.5.0)\r\n",
+      "Requirement already satisfied: language-data>=1.2 in /opt/conda/lib/python3.10/site-packages (from langcodes<4.0.0,>=3.2.0->spacy) (1.3.0)\r\n",
+      "Requirement already satisfied: pyparsing!=3.0.5,>=2.0.2 in /opt/conda/lib/python3.10/site-packages (from packaging>=20.0->spacy) (3.1.2)\r\n",
+      "Requirement already satisfied: annotated-types>=0.6.0 in /opt/conda/lib/python3.10/site-packages (from pydantic!=1.8,!=1.8.1,<3.0.0,>=1.7.4->spacy) (0.7.0)\r\n",
+      "Requirement already satisfied: pydantic-core==2.27.1 in /opt/conda/lib/python3.10/site-packages (from pydantic!=1.8,!=1.8.1,<3.0.0,>=1.7.4->spacy) (2.27.1)\r\n",
+      "Requirement already satisfied: typing-extensions>=4.12.2 in /opt/conda/lib/python3.10/site-packages (from pydantic!=1.8,!=1.8.1,<3.0.0,>=1.7.4->spacy) (4.12.2)\r\n",
+      "Requirement already satisfied: charset-normalizer<4,>=2 in /opt/conda/lib/python3.10/site-packages (from requests<3.0.0,>=2.13.0->spacy) (3.3.2)\r\n",
+      "Requirement already satisfied: idna<4,>=2.5 in /opt/conda/lib/python3.10/site-packages (from requests<3.0.0,>=2.13.0->spacy) (3.7)\r\n",
+      "Requirement already satisfied: urllib3<3,>=1.21.1 in /opt/conda/lib/python3.10/site-packages (from requests<3.0.0,>=2.13.0->spacy) (1.26.18)\r\n",
+      "Requirement already satisfied: certifi>=2017.4.17 in /opt/conda/lib/python3.10/site-packages (from requests<3.0.0,>=2.13.0->spacy) (2024.6.2)\r\n",
+      "Requirement already satisfied: blis<1.1.0,>=1.0.0 in /opt/conda/lib/python3.10/site-packages (from thinc<8.4.0,>=8.3.0->spacy) (1.0.1)\r\n",
+      "Requirement already satisfied: confection<1.0.0,>=0.0.1 in /opt/conda/lib/python3.10/site-packages (from thinc<8.4.0,>=8.3.0->spacy) (0.1.5)\r\n",
+      "Collecting numpy>=1.19.0 (from spacy)\r\n",
+      "  Downloading numpy-2.0.2-cp310-cp310-manylinux_2_17_x86_64.manylinux2014_x86_64.whl.metadata (60 kB)\r\n",
+      "\u001b[2K     \u001b[90m━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\u001b[0m \u001b[32m60.9/60.9 kB\u001b[0m \u001b[31m4.1 MB/s\u001b[0m eta \u001b[36m0:00:00\u001b[0m\r\n",
+      "\u001b[?25hRequirement already satisfied: click>=8.0.0 in /opt/conda/lib/python3.10/site-packages (from typer<1.0.0,>=0.3.0->spacy) (8.1.7)\r\n",
+      "Requirement already satisfied: shellingham>=1.3.0 in /opt/conda/lib/python3.10/site-packages (from typer<1.0.0,>=0.3.0->spacy) (1.5.4)\r\n",
+      "Requirement already satisfied: rich>=10.11.0 in /opt/conda/lib/python3.10/site-packages (from typer<1.0.0,>=0.3.0->spacy) (13.7.1)\r\n",
+      "Requirement already satisfied: cloudpathlib<1.0.0,>=0.7.0 in /opt/conda/lib/python3.10/site-packages (from weasel<0.5.0,>=0.1.0->spacy) (0.20.0)\r\n",
+      "Requirement already satisfied: smart-open<8.0.0,>=5.2.1 in /opt/conda/lib/python3.10/site-packages (from weasel<0.5.0,>=0.1.0->spacy) (7.0.4)\r\n",
+      "Requirement already satisfied: MarkupSafe>=2.0 in /opt/conda/lib/python3.10/site-packages (from jinja2->spacy) (2.1.5)\r\n",
+      "Requirement already satisfied: marisa-trie>=1.1.0 in /opt/conda/lib/python3.10/site-packages (from language-data>=1.2->langcodes<4.0.0,>=3.2.0->spacy) (1.2.1)\r\n",
+      "Requirement already satisfied: markdown-it-py>=2.2.0 in /opt/conda/lib/python3.10/site-packages (from rich>=10.11.0->typer<1.0.0,>=0.3.0->spacy) (3.0.0)\r\n",
+      "Requirement already satisfied: pygments<3.0.0,>=2.13.0 in /opt/conda/lib/python3.10/site-packages (from rich>=10.11.0->typer<1.0.0,>=0.3.0->spacy) (2.18.0)\r\n",
+      "Requirement already satisfied: wrapt in /opt/conda/lib/python3.10/site-packages (from smart-open<8.0.0,>=5.2.1->weasel<0.5.0,>=0.1.0->spacy) (1.16.0)\r\n",
+      "Requirement already satisfied: mdurl~=0.1 in /opt/conda/lib/python3.10/site-packages (from markdown-it-py>=2.2.0->rich>=10.11.0->typer<1.0.0,>=0.3.0->spacy) (0.1.2)\r\n",
+      "Downloading spacy-3.8.3-cp310-cp310-manylinux_2_17_x86_64.manylinux2014_x86_64.whl (29.1 MB)\r\n",
+      "\u001b[2K   \u001b[90m━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\u001b[0m \u001b[32m29.1/29.1 MB\u001b[0m \u001b[31m64.2 MB/s\u001b[0m eta \u001b[36m0:00:00\u001b[0m\r\n",
+      "\u001b[?25hDownloading numpy-2.0.2-cp310-cp310-manylinux_2_17_x86_64.manylinux2014_x86_64.whl (19.5 MB)\r\n",
+      "\u001b[2K   \u001b[90m━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\u001b[0m \u001b[32m19.5/19.5 MB\u001b[0m \u001b[31m89.9 MB/s\u001b[0m eta \u001b[36m0:00:00\u001b[0m\r\n",
+      "\u001b[?25hInstalling collected packages: numpy, spacy\r\n",
+      "  Attempting uninstall: numpy\r\n",
+      "    Found existing installation: numpy 1.26.4\r\n",
+      "    Uninstalling numpy-1.26.4:\r\n",
+      "      Successfully uninstalled numpy-1.26.4\r\n",
+      "  Attempting uninstall: spacy\r\n",
+      "    Found existing installation: spacy 3.8.2\r\n",
+      "    Uninstalling spacy-3.8.2:\r\n",
+      "      Successfully uninstalled spacy-3.8.2\r\n",
+      "\u001b[31mERROR: pip's dependency resolver does not currently take into account all the packages that are installed. This behaviour is the source of the following dependency conflicts.\r\n",
+      "apache-beam 2.46.0 requires cloudpickle~=2.2.1, but you have cloudpickle 3.1.0 which is incompatible.\r\n",
+      "apache-beam 2.46.0 requires dill<0.3.2,>=0.3.1.1, but you have dill 0.3.8 which is incompatible.\r\n",
+      "apache-beam 2.46.0 requires numpy<1.25.0,>=1.14.3, but you have numpy 2.0.2 which is incompatible.\r\n",
+      "apache-beam 2.46.0 requires pyarrow<10.0.0,>=3.0.0, but you have pyarrow 18.1.0 which is incompatible.\r\n",
+      "catboost 1.2.7 requires numpy<2.0,>=1.16.0, but you have numpy 2.0.2 which is incompatible.\r\n",
+      "gensim 4.3.3 requires numpy<2.0,>=1.18.5, but you have numpy 2.0.2 which is incompatible.\r\n",
+      "gensim 4.3.3 requires scipy<1.14.0,>=1.7.0, but you have scipy 1.14.1 which is incompatible.\r\n",
+      "ibis-framework 7.1.0 requires numpy<2,>=1, but you have numpy 2.0.2 which is incompatible.\r\n",
+      "ibis-framework 7.1.0 requires pyarrow<15,>=2, but you have pyarrow 18.1.0 which is incompatible.\r\n",
+      "libpysal 4.9.2 requires packaging>=22, but you have packaging 21.3 which is incompatible.\r\n",
+      "libpysal 4.9.2 requires shapely>=2.0.1, but you have shapely 1.8.5.post1 which is incompatible.\r\n",
+      "matplotlib 3.7.5 requires numpy<2,>=1.20, but you have numpy 2.0.2 which is incompatible.\r\n",
+      "mlxtend 0.23.3 requires scikit-learn>=1.3.1, but you have scikit-learn 1.2.2 which is incompatible.\r\n",
+      "plotnine 0.14.3 requires matplotlib>=3.8.0, but you have matplotlib 3.7.5 which is incompatible.\r\n",
+      "tensorflow 2.16.1 requires ml-dtypes~=0.3.1, but you have ml-dtypes 0.5.0 which is incompatible.\r\n",
+      "tensorflow 2.16.1 requires numpy<2.0.0,>=1.23.5; python_version <= \"3.11\", but you have numpy 2.0.2 which is incompatible.\r\n",
+      "tensorflow-transform 0.14.0 requires numpy<2,>=1.16, but you have numpy 2.0.2 which is incompatible.\r\n",
+      "xarray 2024.11.0 requires packaging>=23.2, but you have packaging 21.3 which is incompatible.\r\n",
+      "ydata-profiling 4.12.0 requires scipy<1.14,>=1.4.1, but you have scipy 1.14.1 which is incompatible.\u001b[0m\u001b[31m\r\n",
+      "\u001b[0mSuccessfully installed numpy-2.0.2 spacy-3.8.3\r\n",
+      "Collecting xx-ent-wiki-sm==3.8.0\r\n",
+      "  Downloading https://github.com/explosion/spacy-models/releases/download/xx_ent_wiki_sm-3.8.0/xx_ent_wiki_sm-3.8.0-py3-none-any.whl (11.1 MB)\r\n",
+      "\u001b[2K     \u001b[90m━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\u001b[0m \u001b[32m11.1/11.1 MB\u001b[0m \u001b[31m32.7 MB/s\u001b[0m eta \u001b[36m0:00:00\u001b[0m\r\n",
+      "\u001b[?25hInstalling collected packages: xx-ent-wiki-sm\r\n",
+      "Successfully installed xx-ent-wiki-sm-3.8.0\r\n",
+      "\u001b[38;5;2m✔ Download and installation successful\u001b[0m\r\n",
+      "You can now load the package via spacy.load('xx_ent_wiki_sm')\r\n"
+     ]
+    }
+   ],
+   "source": [
+    "# loading the universal model\n",
+    "# Load the universal spaCy mode\n",
+    "!pip install -U spacy\n",
+    "!python -m spacy download xx_ent_wiki_sm"
+   ]
+  },
+  {
+   "cell_type": "code",
+   "execution_count": 3,
+   "id": "8b4e7922",
+   "metadata": {
+    "execution": {
+     "iopub.execute_input": "2024-12-20T09:34:57.635926Z",
+     "iopub.status.busy": "2024-12-20T09:34:57.634693Z",
+     "iopub.status.idle": "2024-12-20T09:35:00.396113Z",
+     "shell.execute_reply": "2024-12-20T09:35:00.394747Z"
+    },
+    "papermill": {
+     "duration": 2.772169,
+     "end_time": "2024-12-20T09:35:00.398697",
+     "exception": false,
+     "start_time": "2024-12-20T09:34:57.626528",
+     "status": "completed"
+    },
+    "tags": []
+   },
+   "outputs": [],
+   "source": [
+    "nlp = spacy.load(\"xx_ent_wiki_sm\")"
+   ]
+  },
+  {
+   "cell_type": "code",
+   "execution_count": 4,
+   "id": "dff0bc3f",
+   "metadata": {
+    "execution": {
+     "iopub.execute_input": "2024-12-20T09:35:00.414923Z",
+     "iopub.status.busy": "2024-12-20T09:35:00.414123Z",
+     "iopub.status.idle": "2024-12-20T09:35:00.502069Z",
+     "shell.execute_reply": "2024-12-20T09:35:00.500824Z"
+    },
+    "papermill": {
+     "duration": 0.097867,
+     "end_time": "2024-12-20T09:35:00.504404",
+     "exception": false,
+     "start_time": "2024-12-20T09:35:00.406537",
+     "status": "completed"
+    },
+    "tags": []
+   },
+   "outputs": [
+    {
+     "name": "stdout",
+     "output_type": "stream",
+     "text": [
+      "                                                Text Language\n",
+      "0   Nature, in the broadest sense, is the natural...  English\n",
+      "1  \"Nature\" can refer to the phenomena of the phy...  English\n",
+      "2  The study of nature is a large, if not the onl...  English\n",
+      "3  Although humans are part of nature, human acti...  English\n",
+      "4  [1] The word nature is borrowed from the Old F...  English\n"
+     ]
+    }
+   ],
+   "source": [
+    "df = pd.read_csv('/kaggle/input/language-detection/Language Detection.csv')\n",
+    "print(df.head())"
+   ]
+  },
+  {
+   "cell_type": "markdown",
+   "id": "95a8da5c",
+   "metadata": {
+    "papermill": {
+     "duration": 0.006364,
+     "end_time": "2024-12-20T09:35:00.517299",
+     "exception": false,
+     "start_time": "2024-12-20T09:35:00.510935",
+     "status": "completed"
+    },
+    "tags": []
+   },
+   "source": [
+    "**Lets begin our preprocessing step**"
+   ]
+  },
+  {
+   "cell_type": "code",
+   "execution_count": 5,
+   "id": "956320f7",
+   "metadata": {
+    "execution": {
+     "iopub.execute_input": "2024-12-20T09:35:00.532021Z",
+     "iopub.status.busy": "2024-12-20T09:35:00.531642Z",
+     "iopub.status.idle": "2024-12-20T09:35:33.963094Z",
+     "shell.execute_reply": "2024-12-20T09:35:33.962048Z"
+    },
+    "papermill": {
+     "duration": 33.441796,
+     "end_time": "2024-12-20T09:35:33.965638",
+     "exception": false,
+     "start_time": "2024-12-20T09:35:00.523842",
+     "status": "completed"
+    },
+    "tags": []
+   },
+   "outputs": [],
+   "source": [
+    "# import re\n",
+    "\n",
+    "def yele(text):\n",
+    "    doc = nlp(text)\n",
+    "    tokens = [token.text for token in doc if not token.is_stop and not token.is_punct]\n",
+    "    return \" \".join(tokens)\n",
+    "\n",
+    "df['Text'] = df['Text'].apply(yele)"
+   ]
+  },
+  {
+   "cell_type": "code",
+   "execution_count": 6,
+   "id": "afd70378",
+   "metadata": {
+    "execution": {
+     "iopub.execute_input": "2024-12-20T09:35:33.980875Z",
+     "iopub.status.busy": "2024-12-20T09:35:33.980488Z",
+     "iopub.status.idle": "2024-12-20T09:35:33.985694Z",
+     "shell.execute_reply": "2024-12-20T09:35:33.984671Z"
+    },
+    "papermill": {
+     "duration": 0.015322,
+     "end_time": "2024-12-20T09:35:33.987828",
+     "exception": false,
+     "start_time": "2024-12-20T09:35:33.972506",
+     "status": "completed"
+    },
+    "tags": []
+   },
+   "outputs": [
+    {
+     "name": "stdout",
+     "output_type": "stream",
+     "text": [
+      "(10337, 2)\n"
+     ]
+    }
+   ],
+   "source": [
+    "print(df.shape)\n",
+    "# print(df.iloc[10334][0])"
+   ]
+  },
+  {
+   "cell_type": "markdown",
+   "id": "1492b0c8",
+   "metadata": {
+    "papermill": {
+     "duration": 0.006292,
+     "end_time": "2024-12-20T09:35:34.000759",
+     "exception": false,
+     "start_time": "2024-12-20T09:35:33.994467",
+     "status": "completed"
+    },
+    "tags": []
+   },
+   "source": [
+    "***Lets begin our training data processing***"
+   ]
+  },
+  {
+   "cell_type": "code",
+   "execution_count": 7,
+   "id": "fe3ece9c",
+   "metadata": {
+    "execution": {
+     "iopub.execute_input": "2024-12-20T09:35:34.015896Z",
+     "iopub.status.busy": "2024-12-20T09:35:34.015039Z",
+     "iopub.status.idle": "2024-12-20T09:35:34.027705Z",
+     "shell.execute_reply": "2024-12-20T09:35:34.026299Z"
+    },
+    "papermill": {
+     "duration": 0.022772,
+     "end_time": "2024-12-20T09:35:34.030023",
+     "exception": false,
+     "start_time": "2024-12-20T09:35:34.007251",
+     "status": "completed"
+    },
+    "tags": []
+   },
+   "outputs": [
+    {
+     "name": "stdout",
+     "output_type": "stream",
+     "text": [
+      "9303\n",
+      "1034\n"
+     ]
+    }
+   ],
+   "source": [
+    "X = df['Text']\n",
+    "y = df['Language']\n",
+    "\n",
+    "X_t, X_test, y_t, y_test = train_test_split(X,y,test_size = 0.1, random_state = 1)\n",
+    "\n",
+    "print(len(X_t))\n",
+    "print(len(X_test))"
+   ]
+  },
+  {
+   "cell_type": "markdown",
+   "id": "6895531a",
+   "metadata": {
+    "papermill": {
+     "duration": 0.006268,
+     "end_time": "2024-12-20T09:35:34.042996",
+     "exception": false,
+     "start_time": "2024-12-20T09:35:34.036728",
+     "status": "completed"
+    },
+    "tags": []
+   },
+   "source": [
+    "Now the vectorization process begins from here:"
+   ]
+  },
+  {
+   "cell_type": "code",
+   "execution_count": 8,
+   "id": "22c92f5a",
+   "metadata": {
+    "execution": {
+     "iopub.execute_input": "2024-12-20T09:35:34.057657Z",
+     "iopub.status.busy": "2024-12-20T09:35:34.057185Z",
+     "iopub.status.idle": "2024-12-20T09:35:34.396735Z",
+     "shell.execute_reply": "2024-12-20T09:35:34.395642Z"
+    },
+    "papermill": {
+     "duration": 0.349907,
+     "end_time": "2024-12-20T09:35:34.399454",
+     "exception": false,
+     "start_time": "2024-12-20T09:35:34.049547",
+     "status": "completed"
+    },
+    "tags": []
+   },
+   "outputs": [],
+   "source": [
+    "vect = CountVectorizer()\n",
+    "from sklearn.preprocessing import LabelEncoder\n",
+    "enc = LabelEncoder()\n",
+    "y_t_vec = enc.fit_transform(y_t)\n",
+    "y_test_vec = enc.transform(y_test)\n",
+    "X_t_vec = vect.fit_transform(X_t)\n",
+    "X_test_vec = vect.transform(X_test)"
+   ]
+  },
+  {
+   "cell_type": "code",
+   "execution_count": 9,
+   "id": "95091eaf",
+   "metadata": {
+    "execution": {
+     "iopub.execute_input": "2024-12-20T09:35:34.415132Z",
+     "iopub.status.busy": "2024-12-20T09:35:34.414226Z",
+     "iopub.status.idle": "2024-12-20T09:35:34.761521Z",
+     "shell.execute_reply": "2024-12-20T09:35:34.760348Z"
+    },
+    "papermill": {
+     "duration": 0.357552,
+     "end_time": "2024-12-20T09:35:34.763703",
+     "exception": false,
+     "start_time": "2024-12-20T09:35:34.406151",
+     "status": "completed"
+    },
+    "tags": []
+   },
+   "outputs": [
+    {
+     "name": "stdout",
+     "output_type": "stream",
+     "text": [
+      "TF-IDF training data shape: (9303, 5000)\n",
+      "TF-IDF testing data shape: (1034, 5000)\n"
+     ]
+    }
+   ],
+   "source": [
+    "from sklearn.feature_extraction.text import TfidfVectorizer\n",
+    "\n",
+    "tfidf = TfidfVectorizer(max_features=5000)\n",
+    "X_t_tf = tfidf.fit_transform(X_t)\n",
+    "X_test_tf = tfidf.transform(X_test)\n",
+    "\n",
+    "print(f\"TF-IDF training data shape: {X_t_tf.shape}\")\n",
+    "print(f\"TF-IDF testing data shape: {X_test_tf.shape}\")"
+   ]
+  },
+  {
+   "cell_type": "code",
+   "execution_count": 10,
+   "id": "8e8c504a",
+   "metadata": {
+    "execution": {
+     "iopub.execute_input": "2024-12-20T09:35:34.779482Z",
+     "iopub.status.busy": "2024-12-20T09:35:34.779081Z",
+     "iopub.status.idle": "2024-12-20T09:35:34.796067Z",
+     "shell.execute_reply": "2024-12-20T09:35:34.794757Z"
+    },
+    "papermill": {
+     "duration": 0.027988,
+     "end_time": "2024-12-20T09:35:34.798483",
+     "exception": false,
+     "start_time": "2024-12-20T09:35:34.770495",
+     "status": "completed"
+    },
+    "tags": []
+   },
+   "outputs": [
+    {
+     "name": "stdout",
+     "output_type": "stream",
+     "text": [
+      "Logistic Regression Accuracy: 96.32%\n"
+     ]
+    }
+   ],
+   "source": [
+    "from sklearn.naive_bayes import MultinomialNB\n",
+    "clf_nb = MultinomialNB()\n",
+    "clf_nb.fit(X_t_tf, y_t_vec)\n",
+    "predi = clf_nb.predict(X_test_tf)\n",
+    "accuracy_logreg = accuracy_score(y_test_vec, predi)\n",
+    "print(f\"Logistic Regression Accuracy: {accuracy_logreg * 100:.2f}%\")"
+   ]
+  },
+  {
+   "cell_type": "code",
+   "execution_count": 11,
+   "id": "d3363281",
+   "metadata": {
+    "execution": {
+     "iopub.execute_input": "2024-12-20T09:35:34.813791Z",
+     "iopub.status.busy": "2024-12-20T09:35:34.813421Z",
+     "iopub.status.idle": "2024-12-20T09:35:39.834687Z",
+     "shell.execute_reply": "2024-12-20T09:35:39.830813Z"
+    },
+    "papermill": {
+     "duration": 5.0352,
+     "end_time": "2024-12-20T09:35:39.840582",
+     "exception": false,
+     "start_time": "2024-12-20T09:35:34.805382",
+     "status": "completed"
+    },
+    "tags": []
+   },
+   "outputs": [
+    {
+     "name": "stdout",
+     "output_type": "stream",
+     "text": [
+      "Logistic Regression Accuracy: 95.74%\n"
+     ]
+    }
+   ],
+   "source": [
+    "from sklearn.linear_model import LogisticRegression\n",
+    "logi = LogisticRegression(max_iter = 1000)\n",
+    "\n",
+    "logi.fit(X_t_tf, y_t_vec)\n",
+    "\n",
+    "predi = logi.predict(X_test_tf)\n",
+    "\n",
+    "accuracy_logreg = accuracy_score(y_test_vec, predi)\n",
+    "print(f\"Logistic Regression Accuracy: {accuracy_logreg * 100:.2f}%\")\n"
+   ]
+  },
+  {
+   "cell_type": "code",
+   "execution_count": 12,
+   "id": "ff30c1ed",
+   "metadata": {
+    "execution": {
+     "iopub.execute_input": "2024-12-20T09:35:39.901737Z",
+     "iopub.status.busy": "2024-12-20T09:35:39.901181Z",
+     "iopub.status.idle": "2024-12-20T09:35:39.922536Z",
+     "shell.execute_reply": "2024-12-20T09:35:39.921471Z"
+    },
+    "papermill": {
+     "duration": 0.05369,
+     "end_time": "2024-12-20T09:35:39.929415",
+     "exception": false,
+     "start_time": "2024-12-20T09:35:39.875725",
+     "status": "completed"
+    },
+    "tags": []
+   },
+   "outputs": [
+    {
+     "name": "stdout",
+     "output_type": "stream",
+     "text": [
+      "['English' 'French' 'Russian']\n"
+     ]
+    }
+   ],
+   "source": [
+    "yele = ['Hello my name is this', 'salut, je mappelle ainsi' , 'привет, меня зовут это', ]\n",
+    "yele_tf = tfidf.transform(yele)\n",
+    "\n",
+    "answer = logi.predict(yele_tf)\n",
+    "ans = enc.inverse_transform(answer)\n",
+    "print(ans)"
+   ]
+  },
+  {
+   "cell_type": "code",
+   "execution_count": 13,
+   "id": "a37dac3d",
+   "metadata": {
+    "execution": {
+     "iopub.execute_input": "2024-12-20T09:35:39.955228Z",
+     "iopub.status.busy": "2024-12-20T09:35:39.954852Z",
+     "iopub.status.idle": "2024-12-20T09:35:43.376492Z",
+     "shell.execute_reply": "2024-12-20T09:35:43.375369Z"
+    },
+    "papermill": {
+     "duration": 3.43202,
+     "end_time": "2024-12-20T09:35:43.378706",
+     "exception": false,
+     "start_time": "2024-12-20T09:35:39.946686",
+     "status": "completed"
+    },
+    "tags": []
+   },
+   "outputs": [
+    {
+     "name": "stderr",
+     "output_type": "stream",
+     "text": [
+      "/opt/conda/lib/python3.10/site-packages/sklearn/svm/_base.py:299: ConvergenceWarning: Solver terminated early (max_iter=1000).  Consider pre-processing your data with StandardScaler or MinMaxScaler.\n",
+      "  warnings.warn(\n"
+     ]
+    },
+    {
+     "name": "stdout",
+     "output_type": "stream",
+     "text": [
+      "Logistic Regression Accuracy: 95.45%\n"
+     ]
+    }
+   ],
+   "source": [
+    "from sklearn.svm import SVC\n",
+    "clf_svm = SVC(kernel='linear', max_iter=1000)\n",
+    "clf_svm.fit(X_t_tf, y_t_vec)\n",
+    "predi = clf_svm.predict(X_test_tf)\n",
+    "accuracy_logreg = accuracy_score(y_test_vec, predi)\n",
+    "print(f\"Logistic Regression Accuracy: {accuracy_logreg * 100:.2f}%\")"
+   ]
+  },
+  {
+   "cell_type": "code",
+   "execution_count": 14,
+   "id": "1750694e",
+   "metadata": {
+    "execution": {
+     "iopub.execute_input": "2024-12-20T09:35:43.394336Z",
+     "iopub.status.busy": "2024-12-20T09:35:43.393905Z",
+     "iopub.status.idle": "2024-12-20T09:35:43.401421Z",
+     "shell.execute_reply": "2024-12-20T09:35:43.400341Z"
+    },
+    "papermill": {
+     "duration": 0.018049,
+     "end_time": "2024-12-20T09:35:43.403763",
+     "exception": false,
+     "start_time": "2024-12-20T09:35:43.385714",
+     "status": "completed"
+    },
+    "tags": []
+   },
+   "outputs": [],
+   "source": [
+    "import pickle\n",
+    "model_path = '/kaggle/working/language_model.pkl'\n",
+    "with open(model_path, 'wb') as f:\n",
+    "    pickle.dump(clf_svm, f)"
+   ]
+  },
+  {
+   "cell_type": "code",
+   "execution_count": null,
+   "id": "d6c293ef",
+   "metadata": {
+    "papermill": {
+     "duration": 0.006833,
+     "end_time": "2024-12-20T09:35:43.417639",
+     "exception": false,
+     "start_time": "2024-12-20T09:35:43.410806",
+     "status": "completed"
+    },
+    "tags": []
+   },
+   "outputs": [],
+   "source": []
+  }
+ ],
+ "metadata": {
+  "kaggle": {
+   "accelerator": "none",
+   "dataSources": [
+    {
+     "datasetId": 1150837,
+     "sourceId": 1929264,
+     "sourceType": "datasetVersion"
+    }
+   ],
+   "dockerImageVersionId": 30804,
+   "isGpuEnabled": false,
+   "isInternetEnabled": true,
+   "language": "python",
+   "sourceType": "notebook"
+  },
+  "kernelspec": {
+   "display_name": "Python 3",
+   "language": "python",
+   "name": "python3"
+  },
+  "language_info": {
+   "codemirror_mode": {
+    "name": "ipython",
+    "version": 3
+   },
+   "file_extension": ".py",
+   "mimetype": "text/x-python",
+   "name": "python",
+   "nbconvert_exporter": "python",
+   "pygments_lexer": "ipython3",
+   "version": "3.10.14"
+  },
+  "papermill": {
+   "default_parameters": {},
+   "duration": 93.912421,
+   "end_time": "2024-12-20T09:35:44.849963",
+   "environment_variables": {},
+   "exception": null,
+   "input_path": "__notebook__.ipynb",
+   "output_path": "__notebook__.ipynb",
+   "parameters": {},
+   "start_time": "2024-12-20T09:34:10.937542",
+   "version": "2.6.0"
+  }
+ },
+ "nbformat": 4,
+ "nbformat_minor": 5
+}
